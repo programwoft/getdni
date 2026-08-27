@@ -103,7 +103,10 @@ async function consultarDniOld(dni) {
 
 async function consultarDni(dni) {
   const browser = await getBrowser();
-  const context = await browser.newContext({ userAgent: USER_AGENT });
+  const context = await browser.newContext({
+    userAgent: USER_AGENT,
+  });
+
   const page = await context.newPage();
 
   try {
@@ -118,14 +121,15 @@ async function consultarDni(dni) {
 
     await page.fill('#campo-dni', dni);
 
-    // Hacer la consulta
     await page.click('button[data-submit]');
 
-    // IMPORTANTE:
-    // Esperamos hasta que los DD tengan contenido real.
+    // Esperamos a que los 3 campos tengan contenido.
     await page.waitForFunction(() => {
       const resultado = document.querySelector('[data-resultado]');
-      if (!resultado) return false;
+
+      if (!resultado) {
+        return false;
+      }
 
       const valores = Array.from(
         resultado.querySelectorAll('dl dd')
@@ -137,14 +141,17 @@ async function consultarDni(dni) {
       );
     }, { timeout: 30000 });
 
-    // Ahora sí extraemos los datos
+    // Ahora extraemos los datos
     const resultado = await page.evaluate(() => {
-      const contenedor = document.querySelector('[data-resultado]');
+      const contenedor = document.querySelector(
+        '[data-resultado]'
+      );
 
-      if (!contenedor) return null;
+      if (!contenedor) {
+        return null;
+      }
 
       const datos = {
-        dni,
         nombres: '',
         apellidoPaterno: '',
         apellidoMaterno: '',
@@ -161,13 +168,9 @@ async function consultarDni(dni) {
 
         if (campo === 'nombres') {
           datos.nombres = valor;
-        }
-
-        if (campo === 'apellido paterno') {
+        } else if (campo === 'apellido paterno') {
           datos.apellidoPaterno = valor;
-        }
-
-        if (campo === 'apellido materno') {
+        } else if (campo === 'apellido materno') {
           datos.apellidoMaterno = valor;
         }
       });
@@ -175,25 +178,35 @@ async function consultarDni(dni) {
       return datos;
     });
 
-    console.log('Resultado DNI:', resultado);
+    console.log('Resultado DNI:', {
+      dni,
+      ...resultado,
+    });
 
-    return resultado;
+    return {
+      dni,
+      ...resultado,
+    };
 
   } catch (error) {
-    console.error('Error consultando DNI:', error);
+    console.error('Error real (modo debug):', error);
 
-    // Diagnóstico útil si el resultado no aparece
     try {
       console.error('URL actual:', page.url());
       console.error('Título:', await page.title());
 
       const debug = await page.evaluate(() => ({
-        resultado: document.querySelector('[data-resultado]')?.outerHTML || null,
-        texto: document.body?.innerText?.slice(0, 1000) || '',
+        resultado:
+          document.querySelector('[data-resultado]')?.outerHTML || null,
+
+        texto:
+          document.body?.innerText?.slice(0, 1000) || '',
       }));
 
       console.error('Debug:', debug);
-    } catch (_) {}
+    } catch (debugError) {
+      console.error('Error obteniendo diagnóstico:', debugError);
+    }
 
     throw error;
 
@@ -201,7 +214,6 @@ async function consultarDni(dni) {
     await context.close();
   }
 }
-
 
 app.post('/api/consultar', async (req, res) => {
   const dni = (req.body?.dni || '').toString().trim();
