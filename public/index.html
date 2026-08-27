@@ -85,8 +85,14 @@
     });
 
     function mostrarAlerta(mensaje, tipo = 'danger') {
-      alerta.textContent = mensaje;
       alerta.className = `alert alert-${tipo} mt-3 mb-0`;
+      alerta.innerHTML = '';
+
+      const pre = document.createElement('pre');
+      pre.className = 'mb-0 font-monospace small text-wrap';
+      pre.textContent = mensaje;
+      alerta.appendChild(pre);
+
       alerta.classList.remove('d-none');
     }
 
@@ -123,7 +129,10 @@
         const data = await resp.json();
 
         if (!resp.ok) {
-          mostrarAlerta(data.error || 'Ocurrió un error en la consulta.');
+          const mensaje = data.stack
+            ? `${data.error}\n\n${data.stack}`
+            : data.error || 'Ocurrió un error en la consulta.';
+          mostrarAlerta(mensaje);
           return;
         }
 

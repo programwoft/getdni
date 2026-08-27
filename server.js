@@ -118,9 +118,12 @@ app.post('/api/consultar', async (req, res) => {
     return res.json(resultado);
   } catch (err) {
     console.error('Error consultando DNI:', err.message);
-    return res
-      .status(502)
-      .json({ error: 'No se pudo completar la consulta. Intenta de nuevo.' });
+    // Modo debug: devolvemos el error real (mensaje + stack corto) para
+    // saber exactamente qué está fallando. Quitar esto antes de producción.
+    return res.status(502).json({
+      error: 'Error real (modo debug): ' + err.message,
+      stack: err.stack?.split('\n').slice(0, 5).join('\n'),
+    });
   }
 });
 
