@@ -61,6 +61,10 @@ async function consultarDni(dni) {
       console.error('Primeros 300 caracteres visibles:', textoVisible);
       console.error('--------------------------------------');
 
+      // Adjuntamos el diagnóstico al error para que llegue hasta la
+      // respuesta HTTP (modo debug), no solo a los logs del servidor.
+      selectorErr.diagnostico = { urlActual, titulo, textoVisible };
+
       throw selectorErr;
     }
 
@@ -123,6 +127,7 @@ app.post('/api/consultar', async (req, res) => {
     return res.status(502).json({
       error: 'Error real (modo debug): ' + err.message,
       stack: err.stack?.split('\n').slice(0, 5).join('\n'),
+      diagnostico: err.diagnostico || null,
     });
   }
 });

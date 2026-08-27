@@ -129,9 +129,11 @@
         const data = await resp.json();
 
         if (!resp.ok) {
-          const mensaje = data.stack
-            ? `${data.error}\n\n${data.stack}`
-            : data.error || 'Ocurrió un error en la consulta.';
+          let mensaje = data.error || 'Ocurrió un error en la consulta.';
+          if (data.stack) mensaje += `\n\n${data.stack}`;
+          if (data.diagnostico) {
+            mensaje += `\n\n--- DIAGNÓSTICO ---\nURL final: ${data.diagnostico.urlActual}\nTítulo: ${data.diagnostico.titulo}\nTexto visible: ${data.diagnostico.textoVisible}`;
+          }
           mostrarAlerta(mensaje);
           return;
         }
