@@ -35,15 +35,41 @@ async function consultarDni(dni) {
   const page = await context.newPage();
 
   try {
-    await page.goto(FORM_URL, { waitUntil: 'networkidle', timeout: 30000 });
+    // 'networkidle' puede colgarse si la página tiene scripts de fondo
+    // (analytics, ads) que nunca dejan de hacer requests. Usamos
+    // 'domcontentloaded' (más liviano) y dejamos que waitForSelector
+    // se encargue de esperar lo que realmente necesitamos.
+    await page.goto(FORM_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    await page.waitForSelector('#dni', { timeout: 10000 });
+    try {
+      // Render (plan compartido) puede ser más lento que tu máquina local,
+      // por eso subimos el timeout de 10s a 20s.
+      await page.waitForSelector('#dni', { timeout: 20000 });
+    } catch (selectorErr) {
+      // Diagnóstico: si no aparece #dni, queremos saber QUÉ cargó en
+      // realidad (¿un challenge de Cloudflare? ¿un bloqueo por IP?
+      // ¿el sitio caído?) en vez de solo ver "timeout".
+      const titulo = await page.title().catch(() => '(sin título)');
+      const urlActual = page.url();
+      const textoVisible = await page
+        .evaluate(() => document.body?.innerText?.slice(0, 300) || '')
+        .catch(() => '(no se pudo leer el body)');
+
+      console.error('--- DIAGNÓSTICO: no apareció #dni ---');
+      console.error('URL final:', urlActual);
+      console.error('Título de la página:', titulo);
+      console.error('Primeros 300 caracteres visibles:', textoVisible);
+      console.error('--------------------------------------');
+
+      throw selectorErr;
+    }
+
     await page.fill('#dni', dni);
 
     // El <form> original hace un submit normal (no AJAX), así que
     // esperamos la navegación junto con el click.
     await Promise.all([
-      page.waitForNavigation({ waitUntil: 'networkidle', timeout: 30000 }),
+      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
       page.click('#btn-buscar-datos-por-dni'),
     ]);
 
