@@ -29,7 +29,7 @@ function getBrowser() {
  *  3) Espera a que cargue la página de resultados.
  *  4) Extrae la fila del <tbody> con page.evaluate().
  */
-async function consultarDni(dni) {
+async function consultarDniOld(dni) {
   const browser = await getBrowser();
   const context = await browser.newContext({ userAgent: USER_AGENT });
   const page = await context.newPage();
@@ -96,6 +96,78 @@ async function consultarDni(dni) {
     });
 
     return resultado;
+  } finally {
+    await context.close();
+  }
+}
+
+async function consultarDni(dni) {
+  const browser = await getBrowser();
+  const context = await browser.newContext({ userAgent: USER_AGENT });
+  const page = await context.newPage();
+
+  try {
+    await page.goto('https://buscardniperu.com/', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
+
+    // Esperar el formulario
+    await page.waitForSelector('#campo-dni', {
+      timeout: 20000,
+    });
+
+    // Ingresar DNI
+    await page.fill('#campo-dni', dni);
+
+    // El resultado aparece en la misma página (no hay navegación)
+    await page.click('button[data-submit]');
+
+    // Esperar a que aparezca/sea visible el resultado
+    await page.waitForSelector('[data-resultado].is-visible', {
+      timeout: 30000,
+    });
+
+    const resultado = await page.evaluate(() => {
+      const contenedor = document.querySelector(
+        '[data-resultado].is-visible'
+      );
+
+      if (!contenedor) return null;
+
+      const datos = {};
+
+      const filas = contenedor.querySelectorAll('dl > div');
+
+      filas.forEach((fila) => {
+        const dt = fila.querySelector('dt');
+        const dd = fila.querySelector('dd');
+
+        if (!dt || !dd) return;
+
+        const campo = dt.textContent.trim().toLowerCase();
+        const valor = dd.textContent.trim();
+
+        if (campo === 'nombres') {
+          datos.nombres = valor;
+        } else if (campo === 'apellido paterno') {
+          datos.apellidoPaterno = valor;
+        } else if (campo === 'apellido materno') {
+          datos.apellidoMaterno = valor;
+        }
+      });
+
+      return datos;
+    });
+
+    if (!resultado) {
+      return null;
+    }
+
+    return {
+      dni,
+      ...resultado,
+    };
   } finally {
     await context.close();
   }
