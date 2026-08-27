@@ -160,6 +160,8 @@ async function consultarDni(dni) {
       return datos;
     });
 
+    console.log('Resultados: ', resultado);
+
     if (!resultado) {
       return null;
     }
