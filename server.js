@@ -112,34 +112,45 @@ async function consultarDni(dni) {
       timeout: 30000,
     });
 
-    // Esperar el formulario
     await page.waitForSelector('#campo-dni', {
       timeout: 20000,
     });
 
-    // Ingresar DNI
     await page.fill('#campo-dni', dni);
 
-    // El resultado aparece en la misma página (no hay navegación)
+    // Hacer la consulta
     await page.click('button[data-submit]');
 
-    // Esperar a que aparezca/sea visible el resultado
-    await page.waitForSelector('[data-resultado].is-visible', {
-      timeout: 30000,
-    });
+    // IMPORTANTE:
+    // Esperamos hasta que los DD tengan contenido real.
+    await page.waitForFunction(() => {
+      const resultado = document.querySelector('[data-resultado]');
+      if (!resultado) return false;
 
-    const resultado = await page.evaluate(() => {
-      const contenedor = document.querySelector(
-        '[data-resultado].is-visible'
+      const valores = Array.from(
+        resultado.querySelectorAll('dl dd')
+      ).map((dd) => dd.textContent.trim());
+
+      return (
+        valores.length >= 3 &&
+        valores.every((valor) => valor.length > 0)
       );
+    }, { timeout: 30000 });
+
+    // Ahora sí extraemos los datos
+    const resultado = await page.evaluate(() => {
+      const contenedor = document.querySelector('[data-resultado]');
 
       if (!contenedor) return null;
 
-      const datos = {};
+      const datos = {
+        dni,
+        nombres: '',
+        apellidoPaterno: '',
+        apellidoMaterno: '',
+      };
 
-      const filas = contenedor.querySelectorAll('dl > div');
-
-      filas.forEach((fila) => {
+      contenedor.querySelectorAll('dl > div').forEach((fila) => {
         const dt = fila.querySelector('dt');
         const dd = fila.querySelector('dd');
 
@@ -150,9 +161,13 @@ async function consultarDni(dni) {
 
         if (campo === 'nombres') {
           datos.nombres = valor;
-        } else if (campo === 'apellido paterno') {
+        }
+
+        if (campo === 'apellido paterno') {
           datos.apellidoPaterno = valor;
-        } else if (campo === 'apellido materno') {
+        }
+
+        if (campo === 'apellido materno') {
           datos.apellidoMaterno = valor;
         }
       });
@@ -160,20 +175,33 @@ async function consultarDni(dni) {
       return datos;
     });
 
-    console.log('Resultados: ', resultado);
+    console.log('Resultado DNI:', resultado);
 
-    if (!resultado) {
-      return null;
-    }
+    return resultado;
 
-    return {
-      dni,
-      ...resultado,
-    };
+  } catch (error) {
+    console.error('Error consultando DNI:', error);
+
+    // Diagnóstico útil si el resultado no aparece
+    try {
+      console.error('URL actual:', page.url());
+      console.error('Título:', await page.title());
+
+      const debug = await page.evaluate(() => ({
+        resultado: document.querySelector('[data-resultado]')?.outerHTML || null,
+        texto: document.body?.innerText?.slice(0, 1000) || '',
+      }));
+
+      console.error('Debug:', debug);
+    } catch (_) {}
+
+    throw error;
+
   } finally {
     await context.close();
   }
 }
+
 
 app.post('/api/consultar', async (req, res) => {
   const dni = (req.body?.dni || '').toString().trim();
