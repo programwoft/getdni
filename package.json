@@ -1,0 +1,14 @@
+{
+  "name": "dni-app-playwright",
+  "version": "1.0.0",
+  "description": "Formulario para consultar datos de DNI (eldni.com) usando Playwright",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "postinstall": "npx playwright install --with-deps chromium"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "playwright": "^1.46.0"
+  }
+}

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Consulta de DNI</title>
+  <link
+    href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/css/bootstrap.min.css"
+    rel="stylesheet"
+  />
+</head>
+<body class="bg-light">
+  <div class="container py-5" style="max-width: 640px;">
+    <div class="card shadow-sm">
+      <div class="card-body p-4">
+        <h1 class="h4 mb-4 text-center">Consulta de datos por DNI</h1>
+
+        <form id="form-dni" class="row g-2 justify-content-center">
+          <div class="col-8">
+            <input
+              type="tel"
+              class="form-control"
+              id="dni"
+              name="dni"
+              maxlength="8"
+              placeholder="Número de DNI"
+              autofocus
+              required
+            />
+          </div>
+          <div class="col-4 d-grid">
+            <button type="submit" class="btn btn-success" id="btn-buscar">
+              <span
+                class="spinner-border spinner-border-sm d-none"
+                id="spinner"
+                role="status"
+                aria-hidden="true"
+              ></span>
+              <span id="btn-text">Buscar</span>
+            </button>
+          </div>
+        </form>
+
+        <div id="alerta" class="alert d-none mt-3 mb-0" role="alert"></div>
+
+        <div id="resultado" class="mt-4 d-none">
+          <div class="text-center mb-3">
+            <h3 class="h5">✔️ <u>Resultados</u></h3>
+            <span
+              id="nombre-completo"
+              class="d-inline-block fw-bold fs-4"
+            ></span>
+          </div>
+
+          <table class="table table-striped table-bordered">
+            <thead class="table-light">
+              <tr>
+                <th>DNI</th>
+                <th>Nombres</th>
+                <th>Apellido Paterno</th>
+                <th>Apellido Materno</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-resultado"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const form = document.getElementById('form-dni');
+    const dniInput = document.getElementById('dni');
+    const btnBuscar = document.getElementById('btn-buscar');
+    const spinner = document.getElementById('spinner');
+    const btnText = document.getElementById('btn-text');
+    const alerta = document.getElementById('alerta');
+    const resultado = document.getElementById('resultado');
+    const nombreCompleto = document.getElementById('nombre-completo');
+    const tbodyResultado = document.getElementById('tbody-resultado');
+
+    // Solo dígitos en el input
+    dniInput.addEventListener('input', () => {
+      dniInput.value = dniInput.value.replace(/\D/g, '');
+    });
+
+    function mostrarAlerta(mensaje, tipo = 'danger') {
+      alerta.textContent = mensaje;
+      alerta.className = `alert alert-${tipo} mt-3 mb-0`;
+      alerta.classList.remove('d-none');
+    }
+
+    function ocultarAlerta() {
+      alerta.classList.add('d-none');
+    }
+
+    function setCargando(cargando) {
+      btnBuscar.disabled = cargando;
+      spinner.classList.toggle('d-none', !cargando);
+      btnText.textContent = cargando ? 'Buscando...' : 'Buscar';
+    }
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      ocultarAlerta();
+      resultado.classList.add('d-none');
+
+      const dni = dniInput.value.trim();
+      if (!/^\d{8}$/.test(dni)) {
+        mostrarAlerta('Ingresa un DNI válido de 8 dígitos.');
+        return;
+      }
+
+      setCargando(true);
+
+      try {
+        const resp = await fetch('/api/consultar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ dni }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          mostrarAlerta(data.error || 'Ocurrió un error en la consulta.');
+          return;
+        }
+
+        nombreCompleto.textContent = `${data.nombres} ${data.apellidoPaterno} ${data.apellidoMaterno}`;
+        tbodyResultado.innerHTML = `
+          <tr>
+            <td>${data.dni}</td>
+            <td>${data.nombres}</td>
+            <td>${data.apellidoPaterno}</td>
+            <td>${data.apellidoMaterno}</td>
+          </tr>
+        `;
+        resultado.classList.remove('d-none');
+      } catch (err) {
+        mostrarAlerta('No se pudo conectar con el servidor.');
+      } finally {
+        setCargando(false);
+      }
+    });
+  </script>
+</body>
+</html>

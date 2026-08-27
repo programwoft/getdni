@@ -1,0 +1,19 @@
+node_modules/
+
+# Playwright
+/test-results/
+/playwright-report/
+/playwright/.cache/
+ms-playwright/
+
+.env
+.env.local
+
+npm-debug.log*
+*.log
+
+.DS_Store
+Thumbs.db
+
+.vscode/
+.idea/
