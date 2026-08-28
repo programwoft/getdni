@@ -236,12 +236,12 @@ app.post('/api/consultar', async (req, res) => {
     return res.json(resultado);
   } catch (err) {
     console.error('Error consultando DNI:', err.message);
-    // Modo debug: devolvemos el error real (mensaje + stack corto) para
-    // saber exactamente qué está fallando. Quitar esto antes de producción.
+
     return res.status(502).json({
-      error: 'Error real (modo debug): ' + err.message,
+      error: 'Error consultando DNI: ' + err.message
+      /* error: 'Error real (modo debug): ' + err.message,
       stack: err.stack?.split('\n').slice(0, 5).join('\n'),
-      diagnostico: err.diagnostico || null,
+      diagnostico: err.diagnostico || null, */
     });
   }
 });
