@@ -4,11 +4,10 @@ const { chromium } = require('playwright');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const FORM_URL = process.env.FORM_URL || '';
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
-
-const FORM_URL = 'https://eldni.com/pe/buscar-datos-por-dni';
 
 const USER_AGENT =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36';
@@ -22,85 +21,6 @@ function getBrowser() {
   return browserPromise;
 }
 
-/**
- * Consulta un DNI en eldni.com usando Playwright:
- *  1) Abre el formulario en un contexto/página nueva.
- *  2) Escribe el DNI y hace click en "Buscar" (submit real del form).
- *  3) Espera a que cargue la página de resultados.
- *  4) Extrae la fila del <tbody> con page.evaluate().
- */
-async function consultarDniOld(dni) {
-  const browser = await getBrowser();
-  const context = await browser.newContext({ userAgent: USER_AGENT });
-  const page = await context.newPage();
-
-  try {
-    // 'networkidle' puede colgarse si la página tiene scripts de fondo
-    // (analytics, ads) que nunca dejan de hacer requests. Usamos
-    // 'domcontentloaded' (más liviano) y dejamos que waitForSelector
-    // se encargue de esperar lo que realmente necesitamos.
-    await page.goto(FORM_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
-
-    try {
-      // Render (plan compartido) puede ser más lento que tu máquina local,
-      // por eso subimos el timeout de 10s a 20s.
-      await page.waitForSelector('#dni', { timeout: 20000 });
-    } catch (selectorErr) {
-      // Diagnóstico: si no aparece #dni, queremos saber QUÉ cargó en
-      // realidad (¿un challenge de Cloudflare? ¿un bloqueo por IP?
-      // ¿el sitio caído?) en vez de solo ver "timeout".
-      const titulo = await page.title().catch(() => '(sin título)');
-      const urlActual = page.url();
-      const textoVisible = await page
-        .evaluate(() => document.body?.innerText?.slice(0, 300) || '')
-        .catch(() => '(no se pudo leer el body)');
-
-      console.error('--- DIAGNÓSTICO: no apareció #dni ---');
-      console.error('URL final:', urlActual);
-      console.error('Título de la página:', titulo);
-      console.error('Primeros 300 caracteres visibles:', textoVisible);
-      console.error('--------------------------------------');
-
-      // Adjuntamos el diagnóstico al error para que llegue hasta la
-      // respuesta HTTP (modo debug), no solo a los logs del servidor.
-      selectorErr.diagnostico = { urlActual, titulo, textoVisible };
-
-      throw selectorErr;
-    }
-
-    await page.fill('#dni', dni);
-
-    // El <form> original hace un submit normal (no AJAX), así que
-    // esperamos la navegación junto con el click.
-    await Promise.all([
-      page.waitForNavigation({ waitUntil: 'domcontentloaded', timeout: 30000 }),
-      page.click('#btn-buscar-datos-por-dni'),
-    ]);
-
-    const resultado = await page.evaluate(() => {
-      const fila = document.querySelector('table tbody tr');
-      if (!fila) return null;
-
-      const celdas = Array.from(fila.querySelectorAll('td')).map((td) =>
-        td.textContent.trim()
-      );
-
-      if (celdas.length < 4) return null;
-
-      return {
-        dni: celdas[0],
-        nombres: celdas[1],
-        apellidoPaterno: celdas[2],
-        apellidoMaterno: celdas[3],
-      };
-    });
-
-    return resultado;
-  } finally {
-    await context.close();
-  }
-}
-
 async function consultarDni(dni) {
   const browser = await getBrowser();
   const context = await browser.newContext({
@@ -110,7 +30,7 @@ async function consultarDni(dni) {
   const page = await context.newPage();
 
   try {
-    await page.goto('https://buscardniperu.com/', {
+    await page.goto(FORM_URL, {
       waitUntil: 'domcontentloaded',
       timeout: 30000,
     });
