@@ -1,7 +1,7 @@
 {
   "name": "dni-app-playwright",
   "version": "1.0.0",
-  "description": "Formulario para consultar datos de DNI (eldni.com) usando Playwright",
+  "description": "Formulario para consultar datos de DNI usando Playwright",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
